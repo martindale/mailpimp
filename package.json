@@ -1,0 +1,31 @@
+{
+  "name": "mailpimp",
+  "version": "0.0.0",
+  "description": "open source mail service",
+  "main": "mailpimp.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/martindale/mailpimp.git"
+  },
+  "keywords": [
+    "mail",
+    "rss",
+    "feed",
+    "mailing",
+    "list"
+  ],
+  "author": "Eric Martindale",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/martindale/mailpimp/issues"
+  },
+  "homepage": "https://github.com/martindale/mailpimp",
+  "devDependencies": {
+    "coveralls": "^2.11.2",
+    "istanbul": "^0.3.13",
+    "mocha": "^2.2.4"
+  }
+}
