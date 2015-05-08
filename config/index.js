@@ -24,5 +24,14 @@ module.exports = {
         }
       }
     ],
+  },
+  database: {
+    name: 'mailpimp'
+  },
+  mail: {
+    host: 'localhost',
+    user: 'username',
+    pass: 'password',
+    ssl: true
   }
 }
