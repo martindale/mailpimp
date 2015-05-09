@@ -38,7 +38,8 @@ var List = mailpimp.define('List', {
   attributes: {
     name: { type: String , required: true , max: 200 },
     source: { type: String },
-    created: { type: Date , default: Date.now }
+    created: { type: Date , default: Date.now },
+    from: { type: String , max: 200 }
   }
 });
 
@@ -47,7 +48,7 @@ var Mail = mailpimp.define('Mail', {
     subject: { type: String , max: 200 },
     content: { type: String },
     //created: { type: Date , default: Date.now },
-    _list:   { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List', populate: ['query'] },
+    _list:   { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
   }
 });
 
@@ -75,35 +76,25 @@ Mail.on('create', function(mail) {
         _list: mail._list,
         _mail: mail._id
       }, function(err, task) {
-        mailpimp.agency.publish('email', task, function(err) {
-          console.log('mail all done.', err);
-        });
+        mailpimp.agency.publish('email', task, new Function() );
       });
     });
   });
-
 });
 
 mailpimp.start(function() {
   mailpimp.agency = new Agency( mailpimp.datastore.db );
   mailpimp.agency.subscribe('email', function(task, done) {
-    var server = require('emailjs').server.connect({
-      user: config.mail.user,
-      password: config.mail.pass,
-      host: config.mail.host,
-      ssl: config.mail.ssl
+    var server = require('emailjs').server.connect( config.mail );
+    List.get({ _id: task._list }, function(err, list) {
+      task._list = list;
+      var mail = {
+        text: task.content,
+        from: task._list.from,
+        to: task.recipient,
+        subject: task.subject
+      };
+      server.send( mail , done );
     });
-
-    var mail = {
-      text: task.content,
-      from: task._list.from,
-      to: task.recipient,
-      subject: task.subject
-    };
-
-    server.send(mail, function(err, message) {
-      done(err);
-    });
-
   });
 });
