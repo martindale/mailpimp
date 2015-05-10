@@ -153,8 +153,8 @@ mailpimp.start(function() {
   });
 
   var rule = new schedule.RecurrenceRule();
-  rule.minute = 12;
-  //rule.hour = 15;
+  rule.minute = 0;
+  rule.hour = 15;
 
   var updater = schedule.scheduleJob(rule, function() {
     List.query({ source: { $exists: true } }, function(err, lists) {
