@@ -57,6 +57,7 @@ var Mail = mailpimp.define('Mail', {
     subject: { type: String , max: 200 },
     content: { type: String },
     //created: { type: Date , default: Date.now },
+    data:    {},
     _list:   { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
   }
 });
@@ -67,6 +68,7 @@ var Task = mailpimp.define('Task', {
     recipient: { type: String , max: 200 },
     subject: { type: String , max: 200 },
     content: { type: String },
+    data: {},
     _mail: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'Mail' },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
   }
@@ -103,6 +105,7 @@ Mail.on('create', function(mail) {
         recipient: subscription.email,
         subject: mail.subject,
         content: mail.content,
+        data: mail.data,
         _list: mail._list,
         _mail: mail._id
       }, function(err, task) {
@@ -135,13 +138,13 @@ mailpimp.start(function() {
       List.get({ _id: task._list }, function(err, list) {
         task._list = list;
         var mail = {
-          text: unfluff( task.content ),
+          text: unfluff( task.content ) + '\n\nRead More: ' + task.data.link,
           from: task._list.from,
           to: task.recipient,
           subject: task.subject,
           attachment: [
             // TODO: templates.
-            { data: '<html>' + task.content + '</html>', alternative: true }
+            { data: '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>', alternative: true }
           ]
         };
         mailpimp.email.send( mail , done );
@@ -150,7 +153,7 @@ mailpimp.start(function() {
   });
 
   var rule = new schedule.RecurrenceRule();
-  rule.minute = 21;
+  rule.minute = 12;
   //rule.hour = 15;
 
   var updater = schedule.scheduleJob(rule, function() {
@@ -166,6 +169,7 @@ mailpimp.start(function() {
                 Mail.create({
                   subject: entry.title,
                   content: entry.content,
+                  data: { link: entry.link },
                   _list: list._id
                 });
               });
