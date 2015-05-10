@@ -15,31 +15,40 @@ var passport = new Passport({
 
 mailpimp.use( passport );
 
+var async = require('async');
 var schedule = require('node-schedule');
+var feed = require('feed-read');
+var unfluff = require('unfluff');
 
 var Person = mailpimp.define('Person', {
   attributes: {
     username: { type: String , max: 35 },
     email: { type: String , max: 200 },
-    created: { type: Date , default: Date.now }
+    created: { type: Date , default: Date.now },
   }
 });
 
 var Subscription = mailpimp.define('Subscription', {
   attributes: {
+    name: {
+      given: { type: String , max: 200 },
+      family: { type: String , max: 200 },
+    },
     email: { type: String , max: 200 },
+    created: { type: Date , default: Date.now },
     validated: { type: Date },
+    status: { type: String , enum: ['created', 'confirmed', 'canceled'], default: 'created' },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-    created: { type: Date , default: Date.now }
   }
 });
 
 var List = mailpimp.define('List', {
   attributes: {
     name: { type: String , required: true , max: 200 },
-    source: { type: String },
+    source: { type: String , max: 200 },
     created: { type: Date , default: Date.now },
-    from: { type: String , max: 200 }
+    from: { type: String , max: 200 , required: true },
+    _template: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
   }
 });
 
@@ -63,12 +72,33 @@ var Task = mailpimp.define('Task', {
   }
 });
 
+var Item = mailpimp.define('Item', {
+  attributes: {
+    url: { type: String , required: true },
+    created: { type: Date , default: Date.now },
+    _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
+  }
+});
+
+var Template = mailpimp.define('Template', {
+  attributes: {
+    name: { type: String , max: 200 },
+    content: { type: String }
+  }
+});
+
+Subscription.on('create', function(subscription) {
+  // TODO: send confirmation emails, double opt-in
+});
+
 Mail.on('create', function(mail) {
+
   Subscription.query({ _list: mail._list }, {
     populate: '_list'
   }, function(err, subscriptions) {
     if (err) return console.error(err);
     subscriptions.forEach(function(subscription) {
+
       Task.create({
         recipient: subscription.email,
         subject: mail.subject,
@@ -76,25 +106,74 @@ Mail.on('create', function(mail) {
         _list: mail._list,
         _mail: mail._id
       }, function(err, task) {
-        mailpimp.agency.publish('email', task, new Function() );
+
+        mailpimp.agency.publish('email', task, function(err) {
+          var ops = [];
+          if (err) {
+            ops.push({ op: 'replace', path: '/status', value: 'failed' });
+          } else {
+            ops.push({ op: 'replace', path: '/status', value: 'sent' });
+          }
+          Task.patch({ _id: task._id }, ops, function(err) {
+            if (err) console.error(err);
+          });
+        });
       });
     });
   });
 });
 
 mailpimp.start(function() {
+  mailpimp.email = require('emailjs').server.connect( config.mail );
+
   mailpimp.agency = new Agency( mailpimp.datastore.db );
   mailpimp.agency.subscribe('email', function(task, done) {
-    var server = require('emailjs').server.connect( config.mail );
-    List.get({ _id: task._list }, function(err, list) {
-      task._list = list;
-      var mail = {
-        text: task.content,
-        from: task._list.from,
-        to: task.recipient,
-        subject: task.subject
-      };
-      server.send( mail , done );
+    Task.patch({ _id: task._id }, [
+      { op: 'replace', path: '/status', value: 'sending' }
+    ], function(err) {
+      if (err) return done(err);
+      List.get({ _id: task._list }, function(err, list) {
+        task._list = list;
+        var mail = {
+          text: unfluff( task.content ),
+          from: task._list.from,
+          to: task.recipient,
+          subject: task.subject,
+          attachment: [
+            // TODO: templates.
+            { data: '<html>' + task.content + '</html>', alternative: true }
+          ]
+        };
+        mailpimp.email.send( mail , done );
+      });
     });
   });
+
+  var rule = new schedule.RecurrenceRule();
+  rule.minute = 21;
+  //rule.hour = 15;
+
+  var updater = schedule.scheduleJob(rule, function() {
+    List.query({ source: { $exists: true } }, function(err, lists) {
+      lists.forEach(function(list) {
+        feed( list.source , function(err, entries) {
+          entries.forEach(function(entry) {
+            Item.get({ url: entry.link }, function(err, item) {
+              if (item) return;
+              Item.create({
+                url: entry.link
+              }, function(err, item) {
+                Mail.create({
+                  subject: entry.title,
+                  content: entry.content,
+                  _list: list._id
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+
 });
