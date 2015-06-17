@@ -36,6 +36,7 @@
     "maki-passport-local": "0.0.3",
     "mongoose-agency": "0.0.0",
     "node-schedule": "^0.2.6",
+    "pem": "^1.7.2",
     "unfluff": "^0.10.0"
   }
 }
