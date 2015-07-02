@@ -34,7 +34,7 @@
     "feed-read": "0.0.1",
     "maki": "git://github.com/martindale/maki",
     "maki-passport-local": "0.0.3",
-    "mongoose-agency": "0.0.0",
+    "mongoose-agency": "git://github.com/martindale/mongoose-agency#completion-fix",
     "node-schedule": "^0.2.6",
     "unfluff": "^0.10.0"
   }
