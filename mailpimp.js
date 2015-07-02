@@ -19,6 +19,8 @@ var async = require('async');
 var schedule = require('node-schedule');
 var feed = require('feed-read');
 var unfluff = require('unfluff');
+var pem = require('pem');
+var fs = require('fs');
 
 var Person = mailpimp.define('Person', {
   attributes: {
@@ -125,6 +127,16 @@ Mail.on('create', function(mail) {
     });
   });
 });
+
+if (!fs.existsSync('./config/identity.crt')) {
+  pem.createCertificate({
+    days: 365 * 2,
+    selfSigned: true
+  }, function(err, keys) {
+    fs.writeFileSync('./config/identity.crt', keys.certificate);
+    fs.writeFileSync('./config/identity.key', keys.clientKey);
+  });
+}
 
 mailpimp.start(function() {
   mailpimp.email = require('emailjs').server.connect( config.mail );
