@@ -138,15 +138,16 @@ mailpimp.start(function() {
       List.get({ _id: task._list }, function(err, list) {
         task._list = list;
         var mail = {
-          text: unfluff( task.content ) + '\n\nRead More: ' + task.data.link,
+          text: unfluff( task.content ) + '\n\nRead More: ' + (task.data ? task.data.link : ''),
           from: task._list.from,
           to: task.recipient,
           subject: task.subject,
           attachment: [
             // TODO: templates.
-            { data: '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>', alternative: true }
+            { data: task.data ? '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>' : '<html><h1>wat</h1></html>', alternative: true }
           ]
         };
+
         mailpimp.email.send( mail , done );
       });
     });
