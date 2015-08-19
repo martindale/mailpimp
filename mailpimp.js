@@ -75,6 +75,8 @@ var Task = mailpimp.define('Task', {
 
 Task.on('create', function(task) {
   mailpimp.agency.publish('email', task, function(err) {
+    if (err) console.error(err);
+
     var ops = [];
     if (err) {
       ops.push({ op: 'replace', path: '/status', value: 'failed' });
@@ -106,13 +108,15 @@ Subscription.on('create', function(subscription) {
   // TODO: send confirmation emails, double opt-in
 });
 
-Mail.on('create', function(mail) {
+Mail.post('create', function(done) {
+  var mail = this;
   Subscription.query({ _list: mail._list }, {
     populate: '_list'
   }, function(err, subscriptions) {
-    if (err) return console.error(err);
+    if (err) return done(err);
     subscriptions.forEach(function(subscription) {
       Task.create({
+        sender: subscription._list.from,
         recipient: subscription.email,
         subject: mail.subject,
         content: mail.content,
@@ -120,7 +124,7 @@ Mail.on('create', function(mail) {
         _list: mail._list,
         _mail: mail._id
       }, function(err, task) {
-
+        return done(err);
       });
     });
   });
@@ -137,35 +141,30 @@ mailpimp.start(function() {
       if (err) return done(err);
 
       var mail = {
-        text: unfluff( task.content ) + '\n\nRead More: ' + (task.data ? task.data.link : ''),
+        text: unfluff( task.content ).text,
         to: task.recipient,
+        from: task.sender,
         subject: task.subject
       };
 
       if (task.data) {
+        task.text += '\n\nRead More: ' + task.data.link;
         // TODO: templates.
         mail.attachment = [
-          { data: '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>' }
+          { data: '<html><h1><a href="'+task.data.link+'">'+task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>', alternative: true }
         ];
-      } else {
-        mail.text = task.content;
       }
 
-      if (task.sender) {
-        mail.from = task.sender;
-        mailpimp.email.send( mail , done );
-      } else {
-        List.get({ _id: task._list }, function(err, list) {
-          task._list = list;
-          mailpimp.email.send( mail , done );
-        });
-      }
+      mailpimp.email.send( mail , function(err) {
+        done(err);
+      });
+
     });
   });
 
   var rule = new schedule.RecurrenceRule();
-  rule.minute = 0;
-  rule.hour = 15;
+  rule.minute = 44; // 0
+  //rule.hour = 15;
 
   var updater = schedule.scheduleJob(rule, function() {
     List.query({ source: { $exists: true } }, function(err, lists) {
