@@ -141,21 +141,21 @@ mailpimp.start(function() {
       if (err) return done(err);
 
       var mail = {
-        text: unfluff( task.content ).text,
+        text: task.content,
         to: task.recipient,
         from: task.sender,
         subject: task.subject
       };
 
       if (task.data) {
-        task.text += '\n\nRead More: ' + task.data.link;
+        mail.text = unfluff( task.content ).text + '\n\nRead More: ' + task.data.link;
         // TODO: templates.
         mail.attachment = [
           { data: '<html><h1><a href="'+task.data.link+'">'+task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>', alternative: true }
         ];
       }
 
-      mailpimp.email.send( mail , function(err) {
+      mailpimp.email.send( mail , function(err, message) {
         done(err);
       });
 
@@ -163,8 +163,8 @@ mailpimp.start(function() {
   });
 
   var rule = new schedule.RecurrenceRule();
-  rule.minute = 44; // 0
-  //rule.hour = 15;
+  rule.minute = 0;
+  rule.hour = 15;
 
   var updater = schedule.scheduleJob(rule, function() {
     List.query({ source: { $exists: true } }, function(err, lists) {
