@@ -63,6 +63,7 @@ var Mail = mailpimp.define('Mail', {
 var Task = mailpimp.define('Task', {
   attributes: {
     status: { type: String , enum: ['pending', 'sending', 'sent', 'failed'], default: 'pending' },
+    sender: { type: String , max: 200 },
     recipient: { type: String , max: 200 },
     subject: { type: String , max: 200 },
     content: { type: String },
@@ -70,6 +71,20 @@ var Task = mailpimp.define('Task', {
     _mail: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'Mail' },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
   }
+});
+
+Task.on('create', function(task) {
+  mailpimp.agency.publish('email', task, function(err) {
+    var ops = [];
+    if (err) {
+      ops.push({ op: 'replace', path: '/status', value: 'failed' });
+    } else {
+      ops.push({ op: 'replace', path: '/status', value: 'sent' });
+    }
+    Task.patch({ _id: task._id }, ops, function(err) {
+      if (err) console.error(err);
+    });
+  });
 });
 
 var Item = mailpimp.define('Item', {
@@ -92,13 +107,11 @@ Subscription.on('create', function(subscription) {
 });
 
 Mail.on('create', function(mail) {
-
   Subscription.query({ _list: mail._list }, {
     populate: '_list'
   }, function(err, subscriptions) {
     if (err) return console.error(err);
     subscriptions.forEach(function(subscription) {
-
       Task.create({
         recipient: subscription.email,
         subject: mail.subject,
@@ -108,17 +121,6 @@ Mail.on('create', function(mail) {
         _mail: mail._id
       }, function(err, task) {
 
-        mailpimp.agency.publish('email', task, function(err) {
-          var ops = [];
-          if (err) {
-            ops.push({ op: 'replace', path: '/status', value: 'failed' });
-          } else {
-            ops.push({ op: 'replace', path: '/status', value: 'sent' });
-          }
-          Task.patch({ _id: task._id }, ops, function(err) {
-            if (err) console.error(err);
-          });
-        });
       });
     });
   });
@@ -133,21 +135,31 @@ mailpimp.start(function() {
       { op: 'replace', path: '/status', value: 'sending' }
     ], function(err) {
       if (err) return done(err);
-      List.get({ _id: task._list }, function(err, list) {
-        task._list = list;
-        var mail = {
-          text: unfluff( task.content ) + '\n\nRead More: ' + (task.data ? task.data.link : ''),
-          from: task._list.from,
-          to: task.recipient,
-          subject: task.subject,
-          attachment: [
-            // TODO: templates.
-            { data: task.data ? '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>' : '<html><h1>wat</h1></html>', alternative: true }
-          ]
-        };
 
+      var mail = {
+        text: unfluff( task.content ) + '\n\nRead More: ' + (task.data ? task.data.link : ''),
+        to: task.recipient,
+        subject: task.subject
+      };
+
+      if (task.data) {
+        // TODO: templates.
+        mail.attachment = [
+          { data: '<html><h1><a href="'+task.data.link+'">'+list.name +': ' +task.subject+'</a></h1>' + task.content + '<p><a href="'+task.data.link+'">Read More &raquo;</a></p></html>' }
+        ];
+      } else {
+        mail.text = task.content;
+      }
+
+      if (task.sender) {
+        mail.from = task.sender;
         mailpimp.email.send( mail , done );
-      });
+      } else {
+        List.get({ _id: task._list }, function(err, list) {
+          task._list = list;
+          mailpimp.email.send( mail , done );
+        });
+      }
     });
   });
 
