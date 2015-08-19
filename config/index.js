@@ -1,4 +1,9 @@
 module.exports = {
+  services: {
+    http: {
+      port: 2525
+    }
+  },
   service: {
     name: 'MailPimp',
     icon: 'mail',
