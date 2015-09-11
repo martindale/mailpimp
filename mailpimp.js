@@ -49,6 +49,9 @@ var List = mailpimp.define('List', {
     created: { type: Date , default: Date.now },
     from: { type: String , max: 200 , required: true },
     _template: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
+    stats: {
+      subscribers: { type: Number, default: 0 }
+    }
   },
   icon: 'newspaper'
 });
@@ -112,6 +115,25 @@ var Template = mailpimp.define('Template', {
 
 Subscription.on('create', function(subscription) {
   // TODO: send confirmation emails, double opt-in
+  // TODO: expose aggregate-like function in Maki
+  Subscription.Model.aggregate([
+    { $match: { _list: subscription._list } },
+    { $group: {
+      _id: '$_list',
+      count: { $sum: 1 }
+    } }
+  ], function(err, stats) {
+    if (err) return console.error(err);
+    if (!stats.length) return;
+
+    List.Model.update({
+      _id: subscription._list
+    }, {
+      $set: { 'stats.subscribers': stats[0].count }
+    }, function(err) {
+      if (err) console.error(err);
+    });
+  });
 });
 
 Mail.post('create', function(done) {
