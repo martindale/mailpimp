@@ -32,6 +32,7 @@ var Subscription = mailpimp.define('Subscription', {
     name: {
       given: { type: String , max: 200 },
       family: { type: String , max: 200 },
+      alias: { type: String , max: 200 }
     },
     email: { type: String , max: 200 },
     created: { type: Date , default: Date.now },
@@ -143,6 +144,9 @@ Mail.post('create', function(done) {
   }, function(err, subscriptions) {
     if (err) return done(err);
     subscriptions.forEach(function(subscription) {
+      var name = subscription.name.alias || subscription.name.first || 'friend';
+      mail.content = mail.content.replace('{{name}}', name);
+
       Task.create({
         sender: subscription._list.from,
         recipient: subscription.email,
