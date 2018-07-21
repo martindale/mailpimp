@@ -11,7 +11,7 @@ var passport = new Passport({
   resource: 'Person'
 });
 
-mailpimp.use( passport );
+mailpimp.use(passport);
 
 var async = require('async');
 var schedule = require('node-schedule');
@@ -23,7 +23,8 @@ var Person = mailpimp.define('Person', {
     username: { type: String , max: 35 },
     email: { type: String , max: 200 },
     created: { type: Date , default: Date.now },
-  }
+  },
+  icon: 'user'
 });
 
 var Subscription = mailpimp.define('Subscription', {
@@ -37,7 +38,8 @@ var Subscription = mailpimp.define('Subscription', {
     validated: { type: Date },
     status: { type: String , enum: ['created', 'confirmed', 'canceled'], default: 'created' },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-  }
+  },
+  icon: 'inbox'
 });
 
 var List = mailpimp.define('List', {
@@ -47,7 +49,8 @@ var List = mailpimp.define('List', {
     created: { type: Date , default: Date.now },
     from: { type: String , max: 200 , required: true },
     _template: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-  }
+  },
+  icon: 'newspaper'
 });
 
 var Mail = mailpimp.define('Mail', {
@@ -57,7 +60,8 @@ var Mail = mailpimp.define('Mail', {
     //created: { type: Date , default: Date.now },
     data:    {},
     _list:   { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-  }
+  },
+  icon: 'mail'
 });
 
 var Task = mailpimp.define('Task', {
@@ -70,7 +74,8 @@ var Task = mailpimp.define('Task', {
     data: {},
     _mail: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'Mail' },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-  }
+  },
+  icon: 'setting'
 });
 
 Task.on('create', function(task) {
@@ -94,7 +99,8 @@ var Item = mailpimp.define('Item', {
     url: { type: String , required: true },
     created: { type: Date , default: Date.now },
     _list: { type: mailpimp.mongoose.SchemaTypes.ObjectId , ref: 'List' },
-  }
+  },
+  icon: 'feed'
 });
 
 var Template = mailpimp.define('Template', {
